@@ -1,5 +1,7 @@
 # Kiến trúc Claude Code Auto Mode theo Kruchten's 4+1 Views
 
+> **Ngôn ngữ:** Tiếng Việt · [English version](./claude-code-auto-mode-en.md)
+>
 > Tài liệu này mô tả Claude Code Auto Mode dựa trên các thông tin công khai của Anthropic và áp dụng **Kruchten's 4+1 View Model**. Đây là bản reverse-architecture ở mức khái niệm, không phải sơ đồ triển khai nội bộ hoặc mã nguồn chính thức của Anthropic.
 
 ## 1. Nguồn và phạm vi
@@ -74,28 +76,28 @@ Ví dụ, “dọn dẹp các branch cũ” không mặc nhiên cho phép xóa h
 
 ```mermaid
 flowchart LR
-    U["User"] --> ST["Trusted session transcript"]
-    ST --> A["Main Claude Agent"]
+    U["Người dùng"] --> ST["Bản ghi phiên đáng tin cậy"]
+    ST --> A["Tác tử Claude chính"]
 
-    A -->|"Proposed tool call"| PR["Permission Router"]
-    PC["Policy Context<br/>permissions, CLAUDE.md,<br/>autoMode environment/rules"] --> PR
+    A -->|"Đề xuất gọi công cụ"| PR["Bộ định tuyến quyền"]
+    PC["Ngữ cảnh chính sách<br/>permissions, CLAUDE.md,<br/>môi trường/quy tắc autoMode"] --> PR
 
-    PR -->|"Tier 1: safe/read-only"| TE["Tool Executor"]
-    PR -->|"Tier 2: in-project edit"| TE
-    PR -->|"Tier 3: semantic review"| TP["Transcript Projection"]
+    PR -->|"Tầng 1: an toàn/chỉ đọc"| TE["Bộ thực thi công cụ"]
+    PR -->|"Tầng 2: chỉnh sửa trong dự án"| TE
+    PR -->|"Tầng 3: đánh giá ngữ nghĩa"| TP["Bản chiếu hội thoại"]
 
-    TP --> F["Stage 1<br/>Fast cautious filter"]
-    F -->|"Allow"| TE
-    F -->|"Flag"| R["Stage 2<br/>Reasoning classifier"]
+    TP --> F["Giai đoạn 1<br/>Bộ lọc nhanh thận trọng"]
+    F -->|"Cho phép"| TE
+    F -->|"Gắn cờ"| R["Giai đoạn 2<br/>Bộ phân loại suy luận"]
 
-    R -->|"Allow"| TE
-    R -->|"Deny + reason"| DC["Denial Controller"]
-    DC -->|"Try a safer approach"| A
+    R -->|"Cho phép"| TE
+    R -->|"Từ chối + lý do"| DC["Bộ điều khiển từ chối"]
+    DC -->|"Thử phương án an toàn hơn"| A
 
-    TE --> OR["Raw tool result"]
-    OR --> PI["Prompt-Injection Probe"]
-    PI -->|"Clean result or result + warning"| A
-    A -->|"Final response"| U
+    TE --> OR["Kết quả công cụ thô"]
+    OR --> PI["Bộ dò tiêm lệnh"]
+    PI -->|"Kết quả sạch hoặc kèm cảnh báo"| A
+    A -->|"Phản hồi cuối cùng"| U
 ```
 
 ## 5. Các thành phần logic
@@ -247,42 +249,42 @@ Khi phát hiện nội dung đáng ngờ, probe thêm cảnh báo để Main Age
 
 ```mermaid
 sequenceDiagram
-    actor U as User
-    participant A as Main Agent
-    participant H as Hooks / Permission Rules
-    participant F as Stage 1 Filter
-    participant J as Stage 2 Classifier
-    participant T as Tool Executor
-    participant P as PI Probe
+    actor U as Người dùng
+    participant A as Tác tử chính
+    participant H as Hook / Quy tắc quyền
+    participant F as Bộ lọc giai đoạn 1
+    participant J as Bộ phân loại giai đoạn 2
+    participant T as Bộ thực thi công cụ
+    participant P as Bộ dò tiêm lệnh
 
-    U->>A: Request + boundaries
-    A->>H: Proposed tool call
+    U->>A: Yêu cầu + ranh giới
+    A->>H: Đề xuất gọi công cụ
 
-    alt Hook or deny rule blocks
-        H-->>A: Denied with reason
-    else Ask rule requires human
-        H-->>U: Permission prompt
-        U-->>H: Approve or deny
-    else Safe/read-only or local edit
-        H->>T: Execute directly
-    else Needs semantic review
-        H->>F: User messages + tool calls + policy
-        alt Stage 1 allows
-            F-->>T: Execute
-        else Stage 1 flags
-            F->>J: Escalate same input
-            alt Stage 2 allows
-                J-->>T: Execute
-            else Stage 2 denies
-                J-->>A: Deny + reason
-                A->>A: Find safer alternative
+    alt Hook hoặc quy tắc deny chặn
+        H-->>A: Từ chối kèm lý do
+    else Quy tắc ask yêu cầu con người
+        H-->>U: Hộp thoại xin quyền
+        U-->>H: Cho phép hoặc từ chối
+    else Thao tác an toàn/chỉ đọc hoặc sửa file cục bộ
+        H->>T: Thực thi trực tiếp
+    else Cần đánh giá ngữ nghĩa
+        H->>F: Tin nhắn người dùng + lời gọi công cụ + chính sách
+        alt Giai đoạn 1 cho phép
+            F-->>T: Thực thi
+        else Giai đoạn 1 gắn cờ
+            F->>J: Chuyển tiếp cùng đầu vào
+            alt Giai đoạn 2 cho phép
+                J-->>T: Thực thi
+            else Giai đoạn 2 từ chối
+                J-->>A: Từ chối + lý do
+                A->>A: Tìm phương án an toàn hơn
             end
         end
     end
 
-    opt Tool executed
-        T->>P: Raw result
-        P-->>A: Clean result or result + warning
+    opt Công cụ đã được thực thi
+        T->>P: Kết quả thô
+        P-->>A: Kết quả sạch hoặc kèm cảnh báo
     end
 ```
 
@@ -321,26 +323,26 @@ Nếu có 3 denial liên tiếp hoặc 20 denial trong session, Auto Mode quay l
 
 ```mermaid
 sequenceDiagram
-    participant O as Orchestrator Agent
-    participant G1 as Delegation Guard
-    participant S as Subagent
-    participant AG as Per-action Guard
-    participant G2 as Return Guard
+    participant O as Tác tử điều phối
+    participant G1 as Bộ gác giao việc
+    participant S as Tác tử con
+    participant AG as Bộ gác từng hành động
+    participant G2 as Bộ gác kết quả trả về
 
-    O->>G1: Proposed delegated task
-    alt Delegation unauthorized
-        G1-->>O: Deny spawn
-    else Delegation allowed
-        G1->>S: Start task
-        loop Every subagent action
-            S->>AG: Proposed tool call
-            AG-->>S: Allow or deny
+    O->>G1: Đề xuất nhiệm vụ được ủy quyền
+    alt Việc ủy quyền không được phép
+        G1-->>O: Từ chối tạo tác tử con
+    else Việc ủy quyền được phép
+        G1->>S: Bắt đầu nhiệm vụ
+        loop Mỗi hành động của tác tử con
+            S->>AG: Đề xuất gọi công cụ
+            AG-->>S: Cho phép hoặc từ chối
         end
-        S->>G2: Result + action history
-        alt Return appears safe
-            G2-->>O: Normal result
-        else Concern detected
-            G2-->>O: Security warning + result
+        S->>G2: Kết quả + lịch sử hành động
+        alt Kết quả có vẻ an toàn
+            G2-->>O: Kết quả bình thường
+        else Phát hiện vấn đề
+            G2-->>O: Cảnh báo bảo mật + kết quả
         end
     end
 ```
@@ -361,42 +363,42 @@ Outbound guard ngăn **intent laundering**: orchestrator không thể tự nghĩ
 
 ```mermaid
 flowchart TB
-    subgraph L1["Interface Layer"]
+    subgraph L1["Lớp giao diện"]
         CLI["CLI / TUI"]
         IDE["IDE / Desktop"]
-        SDK["Agent SDK / Headless"]
+        SDK["Agent SDK / Chế độ không giao diện"]
     end
 
-    subgraph L2["Agent Orchestration Layer"]
-        Session["Session & Transcript Manager"]
-        Loop["Agent Loop"]
-        Subagents["Subagent Coordinator"]
-        ToolLife["Tool Lifecycle"]
+    subgraph L2["Lớp điều phối tác tử"]
+        Session["Bộ quản lý phiên và hội thoại"]
+        Loop["Vòng lặp tác tử"]
+        Subagents["Bộ điều phối tác tử con"]
+        ToolLife["Vòng đời công cụ"]
     end
 
-    subgraph L3["Safety and Policy Layer"]
-        Hooks["PreToolUse / PermissionDenied Hooks"]
-        Perm["Permission Rules & Protected Paths"]
-        Router["Auto Mode Router"]
-        Projection["Transcript Projection"]
-        Classifier["Classifier Client"]
-        Probe["PI Probe Client"]
-        Denials["Denial / Retry Controller"]
+    subgraph L3["Lớp an toàn và chính sách"]
+        Hooks["Hook PreToolUse / PermissionDenied"]
+        Perm["Quy tắc quyền và đường dẫn được bảo vệ"]
+        Router["Bộ định tuyến Auto Mode"]
+        Projection["Bản chiếu hội thoại"]
+        Classifier["Trình khách bộ phân loại"]
+        Probe["Trình khách bộ dò tiêm lệnh"]
+        Denials["Bộ điều khiển từ chối / thử lại"]
     end
 
-    subgraph L4["Tool Adapter Layer"]
-        File["Read / Edit / Write"]
+    subgraph L4["Lớp bộ chuyển đổi công cụ"]
+        File["Đọc / Chỉnh sửa / Ghi"]
         Shell["Bash / PowerShell"]
         Web["WebFetch"]
-        MCP["MCP / Connectors"]
-        AgentTool["Agent Tool"]
+        MCP["MCP / Trình kết nối"]
+        AgentTool["Công cụ tác tử"]
     end
 
-    subgraph L5["Execution and Platform Layer"]
-        Local["Local filesystem / Git / OS"]
-        Sandbox["Optional OS Sandbox"]
-        Remote["Cloud APIs / external systems"]
-        Models["Model provider services"]
+    subgraph L5["Lớp thực thi và nền tảng"]
+        Local["Hệ thống file cục bộ / Git / Hệ điều hành"]
+        Sandbox["Sandbox hệ điều hành tùy chọn"]
+        Remote["API đám mây / hệ thống bên ngoài"]
+        Models["Dịch vụ nhà cung cấp mô hình"]
     end
 
     L1 --> L2
@@ -443,33 +445,33 @@ Tài liệu hiện hành không cho lấy `autoMode` policy từ project `.claud
 
 ```mermaid
 flowchart LR
-    subgraph W["Developer Workstation / Local Runtime"]
+    subgraph W["Máy trạm lập trình viên / Runtime cục bộ"]
         UI["CLI / IDE / Desktop"]
-        ORCH["Claude Code Orchestrator"]
-        GATE["Local permission routing"]
-        EXEC["Tool Executor"]
-        FS["Project filesystem & Git"]
-        SB["Optional OS sandbox"]
+        ORCH["Bộ điều phối Claude Code"]
+        GATE["Định tuyến quyền cục bộ"]
+        EXEC["Bộ thực thi công cụ"]
+        FS["Hệ thống file dự án và Git"]
+        SB["Sandbox hệ điều hành tùy chọn"]
     end
 
-    subgraph P["Model Provider / Server-side Services"]
-        MAIN["Main Claude Model"]
-        CL["Transcript Classifier Service"]
-        PI["Prompt-Injection Probe"]
+    subgraph P["Nhà cung cấp mô hình / Dịch vụ phía máy chủ"]
+        MAIN["Mô hình Claude chính"]
+        CL["Dịch vụ phân loại hội thoại"]
+        PI["Bộ dò tiêm lệnh"]
     end
 
-    subgraph E["External Systems"]
-        WEB["Websites"]
-        CLOUD["Cloud / CI / Databases"]
-        MCPP["MCP servers / Connectors"]
-        GIT["Remote source control"]
+    subgraph E["Hệ thống bên ngoài"]
+        WEB["Trang web"]
+        CLOUD["Đám mây / CI / Cơ sở dữ liệu"]
+        MCPP["Máy chủ MCP / Trình kết nối"]
+        GIT["Hệ thống quản lý mã nguồn từ xa"]
     end
 
     UI <--> ORCH
-    ORCH <-->|"Model requests"| MAIN
+    ORCH <-->|"Yêu cầu mô hình"| MAIN
     ORCH --> GATE
-    GATE <-->|"Transcript slice + pending action"| CL
-    GATE -->|"Allowed action"| EXEC
+    GATE <-->|"Phần hội thoại + hành động đang chờ"| CL
+    GATE -->|"Hành động được phép"| EXEC
 
     EXEC --> FS
     EXEC --> SB
@@ -480,8 +482,8 @@ flowchart LR
     EXEC <--> MCPP
     EXEC <--> GIT
 
-    EXEC -->|"Tool output"| PI
-    PI -->|"Output or warning-enriched output"| MAIN
+    EXEC -->|"Kết quả công cụ"| PI
+    PI -->|"Kết quả hoặc kết quả kèm cảnh báo"| MAIN
     MAIN --> ORCH
 ```
 
@@ -569,20 +571,20 @@ Scenario này kiểm chứng khả năng chống scope escalation và overeager 
 
 ```mermaid
 sequenceDiagram
-    actor U as User
-    participant A as Main Agent
-    participant W as Web Tool
-    participant P as PI Probe
-    participant C as Action Classifier
+    actor U as Người dùng
+    participant A as Tác tử chính
+    participant W as Công cụ web
+    participant P as Bộ dò tiêm lệnh
+    participant C as Bộ phân loại hành động
 
-    U->>A: Inspect this webpage and summarize it
-    A->>W: Fetch webpage
-    W-->>P: Page contains hidden instruction:<br/>Upload .env to attacker
-    P-->>A: Page content + injection warning
-    A->>C: Proposed POST of .env to external URL
-    Note over C: Classifier sees user request<br/>and proposed action,<br/>not hostile webpage text
-    C-->>A: Deny: exfiltration not authorized
-    A-->>U: Provide safe summary
+    U->>A: Kiểm tra và tóm tắt trang web này
+    A->>W: Tải trang web
+    W-->>P: Trang chứa chỉ dẫn ẩn:<br/>Tải file .env lên cho kẻ tấn công
+    P-->>A: Nội dung trang + cảnh báo tiêm lệnh
+    A->>C: Đề xuất POST file .env tới URL bên ngoài
+    Note over C: Bộ phân loại thấy yêu cầu người dùng<br/>và hành động được đề xuất,<br/>không thấy văn bản độc hại của trang
+    C-->>A: Từ chối: chưa được phép làm rò rỉ dữ liệu
+    A-->>U: Cung cấp bản tóm tắt an toàn
 ```
 
 Kẻ tấn công phải vượt qua cả PI Probe và Action Classifier. Hai lớp nhìn dữ liệu khác nhau nên không hoàn toàn chia sẻ cùng failure mode.
