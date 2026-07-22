@@ -1,0 +1,41 @@
+# Cầu nối bẻ lái cho Details
+apiVersion: v1
+kind: Service
+metadata:
+  name: details
+spec:
+  ports:
+    - protocol: TCP
+      port: 9080
+      targetPort: 80 # Bẻ vào port 80 (cửa Gateway) của Laptop 2
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: details
+subsets:
+  - addresses:
+      - ip: 192.168.20.30 # QUAN TRỌNG: Đổi thành IP LAN của Laptop 2
+    ports:
+      - port: 80
+---
+# Cầu nối bẻ lái cho Reviews
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  ports:
+    - protocol: TCP
+      port: 9080
+      targetPort: 80 # Bẻ vào port 80 (cửa Gateway) của Laptop 2
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: reviews
+subsets:
+  - addresses:
+      - ip: 192.168.20.30 # QUAN TRỌNG: Đổi thành IP LAN của Laptop 2
+    ports:
+      - port: 80
