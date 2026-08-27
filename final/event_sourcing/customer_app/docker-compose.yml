@@ -1,0 +1,64 @@
+version: '3.8'
+services:
+  eventstore.db:
+    image: eventstore/eventstore:latest
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_EXT_IP=0.0.0.0
+      - EVENTSTORE_INT_IP=0.0.0.0
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - "2113:2113"
+    volumes:
+      - eventstore-volume-data:/var/lib/eventstore
+      - eventstore-volume-logs:/var/log/eventstore
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5001:5000"
+    environment:
+      PORT: 5000
+      EVENTSTORE_CONNECTION_STRING: "esdb://eventstore.db:2113?tls=false"
+      RABBITMQ_URL: "amqp://rabbitmq:5672"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./data:/app/data
+    depends_on:
+      - eventstore.db
+      - rabbitmq
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:5001/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  eventstore-volume-data:
+  eventstore-volume-logs:
+  rabbitmq-data:
