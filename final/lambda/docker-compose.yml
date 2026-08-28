@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: views_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    command: server /data --console-address ":9001"
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - postgres
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+
+  # ingestion_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.worker
+  #   depends_on:
+  #     - kafka
+  #     - minio
+  #   environment:
+  #     KAFKA_BROKER: kafka:29092
+  #     MINIO_ENDPOINT: http://minio:9000
+  #   command: ["python", "scripts/kafka_to_minio.py"]
+
+  # speed_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.worker
+  #   depends_on:
+  #     - kafka
+  #     - postgres
+  #   environment:
+  #     KAFKA_BROKER: kafka:29092
+  #     POSTGRES_HOST: postgres
+  #   command: ["python", "scripts/stream_processor.py"]
+
+  # backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.backend
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - postgres
+  #     - kafka
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     KAFKA_BROKER: kafka:29092
+  #     MINIO_ENDPOINT: http://minio:9000
+  #   volumes:
+  #     - .:/app
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - backend
+
